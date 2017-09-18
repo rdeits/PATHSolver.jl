@@ -16,38 +16,48 @@ export solveMCP, options
 
 
 
-function solveMCP(f_eval::Function, lb::Vector, ub::Vector)
+function solveMCP(f_eval, lb::Vector, ub::Vector)
   var_name = C_NULL
   con_name = C_NULL
+  var_name = Array{String}(0)
+  con_name = Array{String}(0)
+
   return solveMCP(f_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval::Function, lb::Vector, ub::Vector, var_name)
-  con_name = C_NULL
+function solveMCP(f_eval, lb::Vector, ub::Vector, var_name::Vector{String})
+  con_name = Array{String}(0)
   return solveMCP(f_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval::Function, lb::Vector, ub::Vector, var_name, con_name)
+function solveMCP(f_eval, lb::Vector, ub::Vector, var_name::Vector{String}, con_name::Vector{String})
   j_eval = x -> ForwardDiff.jacobian(f_eval, x)
   return solveMCP(f_eval, j_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval::Function, j_eval::Function, lb::Vector, ub::Vector)
-  var_name = C_NULL
-  con_name = C_NULL
+function solveMCP(f_eval, j_eval, lb::Vector, ub::Vector)
+  var_name = Array{String}(0)
+  con_name = Array{String}(0)
   return solveMCP(f_eval, j_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval::Function, j_eval::Function, lb::Vector, ub::Vector, var_name)
-  con_name = C_NULL
+function solveMCP(f_eval, j_eval, lb::Vector, ub::Vector, var_name::Vector{String})
+  con_name = Array{String}(0)
   return solveMCP(f_eval, j_eval, lb, ub, var_name, con_name)
 end
 
 
 
-function solveMCP(f_eval::Function, j_eval::Function, lb::Vector, ub::Vector, var_name, con_name)
+function solveMCP(f_eval, j_eval, lb::Vector, ub::Vector, var_name::Vector{String}, con_name::Vector{String})
   global user_f = f_eval
   global user_j = j_eval
+
+  if length(var_name) == 0
+      var_name = C_NULL
+  end
+  if length(con_name) == 0
+      con_name = C_NULL
+  end
 
   f_user_cb = cfunction(f_user_wrap, Cint, (Cint, Ptr{Cdouble}, Ptr{Cdouble}))
   j_user_cb = cfunction(j_user_wrap, Cint, (Cint, Cint, Ptr{Cdouble}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cdouble}))
