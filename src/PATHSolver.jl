@@ -16,7 +16,7 @@ export solveMCP, options
 
 
 
-function solveMCP(f_eval, lb::Vector, ub::Vector)
+function solveMCP(f_eval, lb::Vector{<:Number}, ub::Vector{<:Number})
   var_name = C_NULL
   con_name = C_NULL
   var_name = Array{String}(0)
@@ -25,30 +25,30 @@ function solveMCP(f_eval, lb::Vector, ub::Vector)
   return solveMCP(f_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval, lb::Vector, ub::Vector, var_name::Vector{String})
+function solveMCP(f_eval, lb::Vector{<:Number}, ub::Vector{<:Number}, var_name::Vector{String})
   con_name = Array{String}(0)
   return solveMCP(f_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval, lb::Vector, ub::Vector, var_name::Vector{String}, con_name::Vector{String})
+function solveMCP(f_eval, lb::Vector{<:Number}, ub::Vector{<:Number}, var_name::Vector{String}, con_name::Vector{String})
   j_eval = x -> ForwardDiff.jacobian(f_eval, x)
   return solveMCP(f_eval, j_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval, j_eval, lb::Vector, ub::Vector)
+function solveMCP(f_eval, j_eval, lb::Vector{<:Number}, ub::Vector{<:Number})
   var_name = Array{String}(0)
   con_name = Array{String}(0)
   return solveMCP(f_eval, j_eval, lb, ub, var_name, con_name)
 end
 
-function solveMCP(f_eval, j_eval, lb::Vector, ub::Vector, var_name::Vector{String})
+function solveMCP(f_eval, j_eval, lb::Vector{<:Number}, ub::Vector{<:Number}, var_name::Vector{String})
   con_name = Array{String}(0)
   return solveMCP(f_eval, j_eval, lb, ub, var_name, con_name)
 end
 
 
 
-function solveMCP(f_eval, j_eval, lb::Vector, ub::Vector, var_name::Vector{String}, con_name::Vector{String})
+function solveMCP(f_eval, j_eval, lb::Vector{<:Number}, ub::Vector{<:Number}, var_name::Vector{String}, con_name::Vector{String})
   global user_f = f_eval
   global user_j = j_eval
 
