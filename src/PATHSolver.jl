@@ -116,61 +116,17 @@ end
 ###############################################################################
 # Converting the Jacobian matrix to the sparse matrix format of the PATH Solver
 ###############################################################################
-function sparse_matrix(A::AbstractSparseArray)
+function sparse_matrix(A::SparseMatrixCSC)
   m, n = size(A)
   @assert m==n
 
-  col_start = Array{Int}(n)
-  col_len = Array{Int}(n)
-  row = Array{Int}(0)
-  data = Array{Float64}(0)
-  for j in 1:n
-    if j==1
-      col_start[j] = 1
-    else
-      col_start[j] = col_start[j-1] + col_len[j-1]
-    end
-
-    col_len[j] = 0
-    for i in 1:n
-      if A[i,j] != 0.0
-        col_len[j] += 1
-        push!(row, i)
-        push!(data, A[i,j])
-      end
-    end
-  end
-
-  return col_start, col_len, row, data
+  col_start = A.colptr[1:end-1]
+  col_len = diff(A.colptr)
+  return col_start, col_len, rowvals(A), nonzeros(A)
 end
 
-function sparse_matrix(A::Matrix)
-  return sparse_matrix(sparse(A))
-  # m, n = size(A)
-  # @assert m==n
-  #
-  # col_start = Array{Int}(n)
-  # col_len = Array{Int}(n)
-  # row = Array{Int}(0)
-  # data = Array{Float64}(0)
-  # for j in 1:n
-  #   if j==1
-  #     col_start[j] = 1
-  #   else
-  #     col_start[j] = col_start[j-1] + col_len[j-1]
-  #   end
-  #
-  #   col_len[j] = 0
-  #   for i in 1:n
-  #     if A[i,j] != 0.0
-  #       col_len[j] += 1
-  #       push!(row, i)
-  #       push!(data, A[i,j])
-  #     end
-  #   end
-  # end
-  #
-  # return col_start, col_len, row, data
+function sparse_matrix(A::AbstractMatrix)
+  return sparse_matrix(convert(SparseMatrixCSC, A))
 end
 ###############################################################################
 

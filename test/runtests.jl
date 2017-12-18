@@ -2,6 +2,8 @@ using PATHSolver
 using ForwardDiff
 using Base.Test
 
+include("sparse_matrix.jl")
+
 M = [0  0 -1 -1 ;
      0  0  1 -2 ;
      1 -1  2 -2 ;
