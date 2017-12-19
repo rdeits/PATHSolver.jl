@@ -118,20 +118,25 @@ function j_user_wrap(user_j::Function)
     # data in PATH corresponds to nonzeros(J_csc)
     data = unsafe_wrap(Array{Cdouble}, data_ptr, Int(expected_nnz), false)
 
-    for i in 1:n
+    @inbounds for i in 1:n
       col_start[i] = J_csc.colptr[i]
       col_len[i] = J_csc.colptr[i + 1] - J_csc.colptr[i]
     end
 
     rv = rowvals(J_csc)
     nz = nonzeros(J_csc)
-    for i in 1:nnz(J_csc)
-      row[i] = rv[i]
-      data[i] = nz[i]
+    num_nonzeros = nnz(J_csc)
+    for i in 1:num_nonzeros
+      @inbounds row[i] = rv[i]
     end
-    for i in (nnz(J_csc)+1):expected_nnz
-      row[i] = 1
-      data[i] = 0
+    for i in 1:num_nonzeros
+      @inbounds data[i] = nz[i]
+    end
+    for i in (num_nonzeros + 1):expected_nnz
+      @inbounds row[i] = 1
+    end
+    for i in (num_nonzeros + 1):expected_nnz
+      @inbounds data[i] = 0
     end
     return Cint(0)
   end
