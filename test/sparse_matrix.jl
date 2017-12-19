@@ -34,15 +34,27 @@ using Base.Test
 
   sparse_matrix_reference(A::Matrix) = sparse_matrix_reference(sparse(A))
 
+  function sparse_matrix_csc(A::SparseMatrixCSC)
+    m, n = size(A)
+    @assert m==n
+    col_start = A.colptr[1:end-1]
+    col_len = diff(A.colptr)
+    row = rowvals(A)
+    data = nonzeros(A)
+    return col_start, col_len, row, data
+  end
+
+  sparse_matrix_csc(A::Matrix) = sparse_matrix_csc(convert(SparseMatrixCSC, A))
+
   srand(42)
   for i in 1:100
     n = rand(5:20)
     M = sprandn(n, n, 0.1)
-    @test PATHSolver.sparse_matrix(M) == sparse_matrix_reference(M)
+    @test sparse_matrix_csc(M) == sparse_matrix_reference(M)
 
     Mf = full(M)
-    @test PATHSolver.sparse_matrix(Mf) == sparse_matrix_reference(Mf)
-    @test PATHSolver.sparse_matrix(Mf) == PATHSolver.sparse_matrix(M)
+    @test sparse_matrix_csc(Mf) == sparse_matrix_reference(Mf)
+    @test sparse_matrix_csc(Mf) == sparse_matrix_csc(M)
   end
 end
 

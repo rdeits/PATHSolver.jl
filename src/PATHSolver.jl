@@ -13,6 +13,8 @@ end
 
 export solveMCP, options
 
+count_nonzeros(M::AbstractSparseMatrix) = nnz(M)
+count_nonzeros(M::AbstractMatrix) = count(x -> !iszero(x), M)  # fallback for dense matrices
 
 
 function solveMCP(f_eval::Function, lb::Vector, ub::Vector, var_name=C_NULL, con_name=C_NULL)
@@ -29,8 +31,7 @@ function solveMCP(f_eval::Function, j_eval::Function, lb::Vector, ub::Vector, va
   f = zeros(n)
 
   J0 = j_eval(z)
-  s_col, s_len, s_row, s_data = sparse_matrix(J0)
-  nnz = length(s_data)
+  nnz = count_nonzeros(J0)
 
   t = ccall( (:path_main, "libpath47julia"), Cint,
           (Cint, Cint,
@@ -83,72 +84,59 @@ end
       # int *row, double *data);
 
 function f_user_wrap(user_f::Function)
-  function callback(n::Cint, z::Ptr{Cdouble}, f::Ptr{Cdouble})
-    F = user_f(unsafe_wrap(Array{Float64}, z, Int(n), false))
-    unsafe_store_vector!(f, F)
+  function callback(n::Cint, z_ptr::Ptr{Cdouble}, f_ptr::Ptr{Cdouble})
+    z = unsafe_wrap(Array{Cdouble}, z_ptr, Int(n), false)
+    f = unsafe_wrap(Array{Cdouble}, f_ptr, Int(n), false)
+    f .= user_f(z)
     return Cint(0)
   end
   return callback
 end
 
 function j_user_wrap(user_j::Function)
-  function callback(n::Cint, nnz::Cint, z::Ptr{Cdouble},
-    col_start::Ptr{Cint}, col_len::Ptr{Cint}, row::Ptr{Cint}, data::Ptr{Cdouble})
+  function callback(n::Cint, expected_nnz::Cint, z_ptr::Ptr{Cdouble},
+                    col_start_ptr::Ptr{Cint}, col_len_ptr::Ptr{Cint}, 
+                    row_ptr::Ptr{Cint}, data_ptr::Ptr{Cdouble})
 
-    J = user_j(unsafe_wrap(Array{Float64}, z, Int(n), false))
+    z = unsafe_wrap(Array{Cdouble}, z_ptr, Int(n), false)
+    J = user_j(z)
 
-    s_col, s_len, s_row, s_data = sparse_matrix(J)
+    # Convert the user-supplied jacobian into the sparse format expected by
+    # PATH. Fortunately, PATH just wants a compressed-sparse-column format, 
+    # which is exactly what Julia's default SparseMatrixCSC uses
+    J_csc = convert(SparseMatrixCSC, J) 
+    if nnz(J_csc) > expected_nnz
+      error("Evaluated jacobian has more nonzero entries than were initially provided in solveMCP()")
+    end
 
-    unsafe_store_vector!(col_start, s_col)
-    unsafe_store_vector!(col_len, s_len)
-    unsafe_store_vector!(row, s_row)
-    unsafe_store_vector!(data, s_data)
+    # col_start in PATH corresponds to J_csc.colptr[1:end-1]
+    col_start = unsafe_wrap(Array{Cint}, col_start_ptr, Int(n), false)
+    # col_len in PATH corresponds to diff(J_csc.colptr)
+    col_len = unsafe_wrap(Array{Cint}, col_len_ptr, Int(n), false)
+    # row in PATH corresponds to rowvals(J_csc)
+    row = unsafe_wrap(Array{Cint}, row_ptr, Int(expected_nnz), false)
+    # data in PATH corresponds to nonzeros(J_csc)
+    data = unsafe_wrap(Array{Cdouble}, data_ptr, Int(expected_nnz), false)
 
+    for i in 1:n
+      col_start[i] = J_csc.colptr[i]
+      col_len[i] = J_csc.colptr[i + 1] - J_csc.colptr[i]
+    end
+
+    rv = rowvals(J_csc)
+    nz = nonzeros(J_csc)
+    for i in 1:nnz(J_csc)
+      row[i] = rv[i]
+      data[i] = nz[i]
+    end
+    for i in (nnz(J_csc)+1):expected_nnz
+      row[i] = 1
+      data[i] = 0
+    end
     return Cint(0)
   end
   return callback
 end
 ###############################################################################
-
-
-
-
-###############################################################################
-# Converting the Jacobian matrix to the sparse matrix format of the PATH Solver
-###############################################################################
-function sparse_matrix(A::SparseMatrixCSC)
-  m, n = size(A)
-  @assert m==n
-
-  col_start = A.colptr[1:end-1]
-  col_len = diff(A.colptr)
-  return col_start, col_len, rowvals(A), nonzeros(A)
-end
-
-function sparse_matrix(A::AbstractMatrix)
-  return sparse_matrix(convert(SparseMatrixCSC, A))
-end
-###############################################################################
-
-
-
-
-
-
-function unsafe_store_vector!(x_ptr::Ptr{Cint}, x_val::Vector)
-  for i in 1:length(x_val)
-    unsafe_store!(x_ptr, x_val[i], i)
-  end
-  return
-end
-
-function unsafe_store_vector!(x_ptr::Ptr{Cdouble}, x_val::Vector)
-  for i in 1:length(x_val)
-    unsafe_store!(x_ptr, x_val[i], i)
-  end
-  return
-end
-
-
 
 end # Module
